@@ -1,3 +1,328 @@
+
+--- FILE: ./verify_data.py ---
+import sqlite3
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+db_path = os.path.join(BASE_DIR, "osce_platform.db")
+
+conn = sqlite3.connect(db_path)
+cursor = conn.cursor()
+
+print(f"Checking database at: {db_path}")
+
+# Check Attempts
+cursor.execute("SELECT id, student_name, score FROM attempts")
+rows = cursor.fetchall()
+
+if not rows:
+    print("❌ No attempts found in the table.")
+else:
+    print(f"✅ Found {len(rows)} attempts:")
+    for row in rows:
+        print(f"ID: {row[0]} | Student: {row[1]} | Score: {row[2]}")
+
+conn.close()
+
+--- FILE: ./setup_scenarios.py ---
+import sqlite3
+import json
+
+def setup_database():
+    db_name = "osce_platform.db"
+    conn = sqlite3.connect(db_name)
+    cursor = conn.cursor()
+
+    cursor.execute("DROP TABLE IF EXISTS scenarios")
+    cursor.execute('''CREATE TABLE scenarios 
+                      (id TEXT PRIMARY KEY, 
+                       name TEXT, 
+                       patient_prompt TEXT, 
+                       rubric TEXT, 
+                       viva_questions TEXT)''')
+
+    cursor.execute('''CREATE TABLE IF NOT EXISTS attempts 
+                      (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                       student_name TEXT, 
+                       score INTEGER, 
+                       feedback TEXT, 
+                       transcript TEXT,
+                       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+
+    chest_pain_rubric = [
+        {"category": "Opening", "item": "Introduces themselves", "completed": False, "points": 1},
+        {"category": "Opening", "item": "Confirms patient details", "completed": False, "points": 1},
+        {"category": "Opening", "item": "Establishes presenting complaint using open questioning", "completed": False, "points": 1},
+        {"category": "HPC", "item": "SOCRATES assessment", "completed": False, "points": 1},
+        {"category": "HPC", "item": "Asks if patient experienced this previously", "completed": False, "points": 1},
+        {"category": "HPC", "item": "Elicits ICE", "completed": False, "points": 1},
+        {"category": "PMH", "item": "HTN / Lipids / Diabetes", "completed": False, "points": 1},
+        {"category": "PMH", "item": "Previous CVD", "completed": False, "points": 1},
+        {"category": "DH", "item": "Medications and ALLERGIES", "completed": False, "points": 1},
+        {"category": "FH", "item": "Family history of CVD", "completed": False, "points": 1},
+        {"category": "SH", "item": "Smoking / Alcohol / Occupation", "completed": False, "points": 1},
+        {"category": "Communication", "item": "Active listening", "completed": False, "points": 1}
+    ]
+
+    abdominal_pain_rubric = [
+        {"category": "Opening", "item": "Introduces and confirms details", "completed": False, "points": 1},
+        {"category": "HPC", "item": "SOCRATES assessment", "completed": False, "points": 1},
+        {"category": "HPC", "item": "Radiation to right shoulder", "completed": False, "points": 1},
+        {"category": "HPC", "item": "Association with fatty meals", "completed": False, "points": 1},
+        {"category": "Systemic", "item": "Screens for Jaundice", "completed": False, "points": 1},
+        {"category": "Systemic", "item": "Screens for Fever/Rigors", "completed": False, "points": 1},
+        {"category": "PMH", "item": "Gallstones or abdominal surgeries", "completed": False, "points": 1},
+        {"category": "DH", "item": "Medications and Allergies", "completed": False, "points": 1},
+        {"category": "SH", "item": "Alcohol and Diet", "completed": False, "points": 1},
+        {"category": "ICE", "item": "Elicits ICE", "completed": False, "points": 1},
+        {"category": "Closing", "item": "Summarises findings", "completed": False, "points": 1}
+    ]
+
+    back_pain_rubric = [
+        {"category": "Opening", "item": "Introduces and confirms details", "completed": False, "points": 1},
+        {"category": "HPC", "item": "SOCRATES assessment", "completed": False, "points": 1},
+        {"category": "Red Flags", "item": "Saddle Anaesthesia", "completed": False, "points": 2},
+        {"category": "Red Flags", "item": "Bladder dysfunction", "completed": False, "points": 2},
+        {"category": "Red Flags", "item": "Bowel dysfunction", "completed": False, "points": 2},
+        {"category": "Red Flags", "item": "Bilateral Leg weakness", "completed": False, "points": 2},
+        {"category": "Red Flags", "item": "Weight loss or Night pain", "completed": False, "points": 1},
+        {"category": "PMH", "item": "History of Cancer or Trauma", "completed": False, "points": 1},
+        {"category": "DH", "item": "Analgesia and Anticoagulants", "completed": False, "points": 1},
+        {"category": "ICE", "item": "Elicits ICE", "completed": False, "points": 1}
+    ]
+
+    chest_pain_viva = [
+        {"q": "What are your top three differentials?", "model": "ACS, PE, Aortic Dissection"},
+        {"q": "Immediate management for ACS?", "model": "Aspirin 300mg, GTN, Morphine"},
+        {"q": "ECG timeframe?", "model": "Within 10 mins"}
+    ]
+
+    abdominal_pain_viva = [
+        {"q": "Primary diagnosis?", "model": "Acute Cholecystitis"},
+        {"q": "Which physical sign confirms suspicion?", "model": "Murphy's Sign"},
+        {"q": "Gold-standard initial imaging?", "model": "RUQ Ultrasound"}
+    ]
+
+    back_pain_viva = [
+        {"q": "Most serious neuro emergency to rule out?", "model": "Cauda Equina Syndrome"},
+        {"q": "Gold-standard investigation and timeframe?", "model": "MRI Spine within 4-6 hours"},
+        {"q": "Definitive management if confirmed?", "model": "Emergency surgical decompression"}
+    ]
+
+    scenarios = [
+        ('chest_pain', 'Chest Pain', 'You are Mr. Jones, 65, crushing chest pain.', json.dumps(chest_pain_rubric), json.dumps(chest_pain_viva)),
+        ('abdominal_pain', 'Abdominal Pain', 'You are Mrs. Smith, 40, sharp RUQ pain.', json.dumps(abdominal_pain_rubric), json.dumps(abdominal_pain_viva)),
+        ('back_pain', 'Back Pain', 'You are Mr. Taylor, 30, lower back pain.', json.dumps(back_pain_rubric), json.dumps(back_pain_viva))
+    ]
+
+    cursor.executemany("INSERT INTO scenarios VALUES (?,?,?,?,?)", scenarios)
+    conn.commit()
+    conn.close()
+    print("✅ Database Synchronized.")
+
+if __name__ == "__main__":
+    setup_database()
+
+--- FILE: ./app.py ---
+import os
+import json
+import sqlite3
+from flask import Flask, request, jsonify, render_template, g
+from dotenv import load_dotenv
+from groq import Groq
+
+load_dotenv()
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+app = Flask(__name__)
+
+# --- CONFIG ---
+WINDOW_SIZE = 10 
+SUMMARIZER_MODEL = "llama-3.1-8b-instant" 
+MAIN_MODEL = "llama-3.3-70b-versatile"
+
+PATIENT_BEHAVIOR_DIRECTIVE = """
+BEHAVIOR: Short, natural sentences. No asterisks. Do not info-dump. Stay in character.
+"""
+
+def get_db():
+    if 'db' not in g:
+        g.db = sqlite3.connect("osce_platform.db")
+        g.db.row_factory = sqlite3.Row
+    return g.db
+
+@app.teardown_appcontext
+def close_db(error):
+    if hasattr(g, 'db'):
+        g.db.close()
+
+def summarize_history(old_messages):
+    try:
+        formatted = "\n".join([f"{m['role']}: {m['content']}" for m in old_messages])
+        prompt = f"Summarize clinical facts gathered: {formatted}"
+        completion = client.chat.completions.create(
+            model=SUMMARIZER_MODEL,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        print(f"❌ Summarization Error: {e}")
+        return "History follows."
+
+@app.route("/")
+def index():
+    db = get_db()
+    scenarios = db.execute("SELECT id, name FROM scenarios").fetchall()
+    return render_template("index.html", scenarios=[dict(s) for s in scenarios])
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    data = request.json
+    scenario_id = data.get("scenario_id")
+    history = data.get("history", [])
+    
+    db = get_db()
+    scenario = db.execute("SELECT patient_prompt FROM scenarios WHERE id =?", (scenario_id,)).fetchone()
+    
+    if not scenario:
+        return jsonify({"error": "Scenario not found"}), 404
+
+    sys_msg = f"{scenario['patient_prompt']}\n\n{PATIENT_BEHAVIOR_DIRECTIVE}"
+    
+    if len(history) > WINDOW_SIZE:
+        summary = summarize_history(history[:-WINDOW_SIZE])
+        messages = [{"role": "system", "content": f"{sys_msg}\n\nSummary: {summary}"}] + history[-WINDOW_SIZE:]
+    else:
+        messages = [{"role": "system", "content": sys_msg}] + history
+    
+    try:
+        comp = client.chat.completions.create(model=MAIN_MODEL, messages=messages)
+        return jsonify({"role": "assistant", "content": comp.choices[0].message.content})
+    except Exception as e:
+        print(f"❌ Chat API Error: {e}")
+        return jsonify({"role": "assistant", "content": "I'm feeling a bit unwell..."}), 500
+
+@app.route("/get_viva", methods=["POST"])
+def get_viva():
+    data = request.json
+    db = get_db()
+    scenario = db.execute("SELECT viva_questions FROM scenarios WHERE id =?", (data.get('scenario_id'),)).fetchone()
+    if not scenario:
+        return jsonify({"questions": []}), 404
+    return jsonify({"questions": json.loads(scenario['viva_questions'])})
+
+@app.route("/grade", methods=["POST"])
+def grade():
+    data = request.json
+    db = get_db()
+    scenario = db.execute("SELECT rubric FROM scenarios WHERE id =?", (data.get('scenario_id'),)).fetchone()
+    
+    transcript = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in data.get('history', [])])
+    original_rubric = json.loads(scenario['rubric'])
+    item_names = [i['item'] for i in original_rubric]
+
+    prompt = f"Grade this transcript against: {json.dumps(item_names)}. Return JSON: {{\"items\": [{{ \"item\": \"name\", \"completed\": true/false }}], \"feedback\": \"str\"}}"
+    
+    try:
+        comp = client.chat.completions.create(
+            model=MAIN_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        result = json.loads(comp.choices[0].message.content)
+        ai_map = {i['item']: i.get('completed', False) for i in result.get('items', [])}
+        
+        final_items = []
+        for orig in original_rubric:
+            final_items.append({"item": orig['item'], "completed": ai_map.get(orig['item'], False), "points": 1})
+
+        earned = sum(1 for i in final_items if i['completed'])
+        score = int((earned / len(final_items)) * 100)
+        
+        return jsonify({"score": score, "items": final_items, "feedback": result.get('feedback', "")})
+    except Exception as e:
+        print(f"❌ Grading Error: {e}")
+        return jsonify({"error": "Failed", "score": 0}), 500
+
+@app.route("/grade_viva", methods=["POST"])
+def grade_viva():
+    data = request.json 
+    db = get_db()
+    scenario = db.execute("SELECT viva_questions FROM scenarios WHERE id =?", (data.get('scenario_id'),)).fetchone()
+    
+    prompt = f"Grade these viva answers: {json.dumps(data.get('responses'))} against models: {scenario['viva_questions']}. Return JSON: {{\"score\": int, \"feedback\": \"str\"}}"
+    
+    try:
+        comp = client.chat.completions.create(
+            model=MAIN_MODEL, 
+            messages=[{"role": "user", "content": prompt}], 
+            response_format={"type": "json_object"}
+        )
+        return jsonify(json.loads(comp.choices[0].message.content))
+    except Exception as e:
+        print(f"❌ Viva Error: {e}")
+        return jsonify({"score": 0, "feedback": "Failed"}), 500
+
+@app.route("/final_assessment", methods=["POST"])
+def final_assessment():
+    data = request.json 
+    final_score = (data.get('h_score', 0) * 0.4) + (data.get('v_score', 0) * 0.6)
+    grade = "PASS" if final_score >= 60 else "FAIL"
+    color = "#7c4dff" if grade == "PASS" else "#ff5252"
+    return jsonify({"score": int(final_score), "grade": grade, "color": color})
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
+
+--- FILE: ./gather_code.py ---
+import os
+
+output_file = "project_context.txt"
+exclude_dirs = {'venv', '.git', '__pycache__'}
+
+with open(output_file, "w") as f:
+    for root, dirs, files in os.walk("."):
+        # Skip excluded directories
+        dirs[:] = [d for d in dirs if d not in exclude_dirs]
+        
+        for file in files:
+            if file.endswith(".py") or file.endswith(".html") or file.endswith(".css"):
+                file_path = os.path.join(root, file)
+                f.write(f"\n--- FILE: {file_path} ---\n")
+                try:
+                    with open(file_path, "r") as code_f:
+                        f.write(code_f.read())
+                except Exception as e:
+                    f.write(f"Error reading file: {e}")
+                f.write("\n")
+
+print(f"Done! Your code is ready in {output_file}")
+
+
+--- FILE: ./init_db.py ---
+import sqlite3
+
+# 1. Connect to (or create) the database file
+connection = sqlite3.connect("osce_platform.db")
+cursor = connection.cursor()
+
+# 2. Create the 'attempts' table
+# We define exactly what 'columns' we want
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_name TEXT,
+    score INTEGER,
+    feedback TEXT,
+    transcript TEXT
+)
+""")
+
+connection.commit()
+connection.close()
+
+print("✅ Database initialized: osce_platform.db created.")
+
+--- FILE: ./templates/index.html ---
 <!DOCTYPE html>
 <html lang="en">
 <head>
