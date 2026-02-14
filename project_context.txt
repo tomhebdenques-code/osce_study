@@ -27,13 +27,20 @@ conn.close()
 --- FILE: ./setup_scenarios.py ---
 import sqlite3
 import json
+import os
 
 def setup_database():
     db_name = "osce_platform.db"
+    
+    # Remove old DB if exists to ensure clean slate for new schema
+    if os.path.exists(db_name):
+        os.remove(db_name)
+        print("⚠️ Old database removed. Creating fresh instance...")
+
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
 
-    cursor.execute("DROP TABLE IF EXISTS scenarios")
+    # Create Scenarios Table
     cursor.execute('''CREATE TABLE scenarios 
                       (id TEXT PRIMARY KEY, 
                        name TEXT, 
@@ -41,7 +48,8 @@ def setup_database():
                        rubric TEXT, 
                        viva_questions TEXT)''')
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS attempts 
+    # Create Attempts Table
+    cursor.execute('''CREATE TABLE attempts 
                       (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                        student_name TEXT, 
                        score INTEGER, 
@@ -49,19 +57,25 @@ def setup_database():
                        transcript TEXT,
                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
 
+    # --- EXISTING STATIONS ---
+
     chest_pain_rubric = [
         {"category": "Opening", "item": "Introduces themselves", "completed": False, "points": 1},
         {"category": "Opening", "item": "Confirms patient details", "completed": False, "points": 1},
-        {"category": "Opening", "item": "Establishes presenting complaint using open questioning", "completed": False, "points": 1},
         {"category": "HPC", "item": "SOCRATES assessment", "completed": False, "points": 1},
-        {"category": "HPC", "item": "Asks if patient experienced this previously", "completed": False, "points": 1},
-        {"category": "HPC", "item": "Elicits ICE", "completed": False, "points": 1},
-        {"category": "PMH", "item": "HTN / Lipids / Diabetes", "completed": False, "points": 1},
-        {"category": "PMH", "item": "Previous CVD", "completed": False, "points": 1},
-        {"category": "DH", "item": "Medications and ALLERGIES", "completed": False, "points": 1},
-        {"category": "FH", "item": "Family history of CVD", "completed": False, "points": 1},
-        {"category": "SH", "item": "Smoking / Alcohol / Occupation", "completed": False, "points": 1},
-        {"category": "Communication", "item": "Active listening", "completed": False, "points": 1}
+        {"category": "HPC", "item": "Asks about previous episodes", "completed": False, "points": 1},
+        {"category": "Risk Factors", "item": "Smoking/Alcohol history", "completed": False, "points": 1},
+        {"category": "Risk Factors", "item": "Family History of CVD", "completed": False, "points": 1},
+        {"category": "Red Flags", "item": "Asks about palpitations/dizziness", "completed": False, "points": 1},
+        {"category": "Red Flags", "item": "Asks about shortness of breath", "completed": False, "points": 1},
+        {"category": "ICE", "item": "Elicits Ideas, Concerns, Expectations", "completed": False, "points": 1},
+        {"category": "Closing", "item": "Summarises and Safety Nets", "completed": False, "points": 1}
+    ]
+
+    chest_pain_viva = [
+        {"q": "What are your top three differentials?", "model": "ACS (MI/Angina), Pulmonary Embolism, Aortic Dissection"},
+        {"q": "Immediate management for suspected ACS?", "model": "MONA: Morphine, Oxygen (if sat <94%), Nitrates (GTN), Aspirin 300mg"},
+        {"q": "What is the timeframe for a primary PCI?", "model": "Within 120 minutes of first medical contact"}
     ]
 
     abdominal_pain_rubric = [
@@ -74,51 +88,102 @@ def setup_database():
         {"category": "PMH", "item": "Gallstones or abdominal surgeries", "completed": False, "points": 1},
         {"category": "DH", "item": "Medications and Allergies", "completed": False, "points": 1},
         {"category": "SH", "item": "Alcohol and Diet", "completed": False, "points": 1},
-        {"category": "ICE", "item": "Elicits ICE", "completed": False, "points": 1},
         {"category": "Closing", "item": "Summarises findings", "completed": False, "points": 1}
+    ]
+
+    abdominal_pain_viva = [
+        {"q": "What is the most likely diagnosis?", "model": "Acute Cholecystitis or Biliary Colic"},
+        {"q": "Which physical sign confirms suspicion of cholecystitis?", "model": "Murphy's Sign (inspiratory arrest on RUQ palpation)"},
+        {"q": "Gold-standard initial imaging?", "model": "Abdominal Ultrasound (RUQ)"}
     ]
 
     back_pain_rubric = [
         {"category": "Opening", "item": "Introduces and confirms details", "completed": False, "points": 1},
         {"category": "HPC", "item": "SOCRATES assessment", "completed": False, "points": 1},
         {"category": "Red Flags", "item": "Saddle Anaesthesia", "completed": False, "points": 2},
-        {"category": "Red Flags", "item": "Bladder dysfunction", "completed": False, "points": 2},
-        {"category": "Red Flags", "item": "Bowel dysfunction", "completed": False, "points": 2},
+        {"category": "Red Flags", "item": "Bladder dysfunction (retention/incontinence)", "completed": False, "points": 2},
+        {"category": "Red Flags", "item": "Bowel dysfunction (incontinence)", "completed": False, "points": 2},
         {"category": "Red Flags", "item": "Bilateral Leg weakness", "completed": False, "points": 2},
-        {"category": "Red Flags", "item": "Weight loss or Night pain", "completed": False, "points": 1},
-        {"category": "PMH", "item": "History of Cancer or Trauma", "completed": False, "points": 1},
-        {"category": "DH", "item": "Analgesia and Anticoagulants", "completed": False, "points": 1},
+        {"category": "Red Flags", "item": "History of Cancer or Trauma", "completed": False, "points": 1},
         {"category": "ICE", "item": "Elicits ICE", "completed": False, "points": 1}
-    ]
-
-    chest_pain_viva = [
-        {"q": "What are your top three differentials?", "model": "ACS, PE, Aortic Dissection"},
-        {"q": "Immediate management for ACS?", "model": "Aspirin 300mg, GTN, Morphine"},
-        {"q": "ECG timeframe?", "model": "Within 10 mins"}
-    ]
-
-    abdominal_pain_viva = [
-        {"q": "Primary diagnosis?", "model": "Acute Cholecystitis"},
-        {"q": "Which physical sign confirms suspicion?", "model": "Murphy's Sign"},
-        {"q": "Gold-standard initial imaging?", "model": "RUQ Ultrasound"}
     ]
 
     back_pain_viva = [
         {"q": "Most serious neuro emergency to rule out?", "model": "Cauda Equina Syndrome"},
-        {"q": "Gold-standard investigation and timeframe?", "model": "MRI Spine within 4-6 hours"},
+        {"q": "Gold-standard investigation and timeframe?", "model": "MRI Whole Spine within 4-6 hours"},
         {"q": "Definitive management if confirmed?", "model": "Emergency surgical decompression"}
     ]
 
+    # --- NEW STATIONS (COMPETITOR INSPIRED) ---
+
+    neuro_headache_rubric = [
+        {"category": "Opening", "item": "Introduces and confirms details", "completed": False, "points": 1},
+        {"category": "HPC", "item": "Onset speed (Thunderclap vs Gradual)", "completed": False, "points": 2},
+        {"category": "HPC", "item": "Severity (1-10)", "completed": False, "points": 1},
+        {"category": "Associated Sx", "item": "Photophobia / Neck Stiffness", "completed": False, "points": 1},
+        {"category": "Associated Sx", "item": "Vomiting or Visual disturbance", "completed": False, "points": 1},
+        {"category": "Red Flags", "item": "History of trauma", "completed": False, "points": 1},
+        {"category": "PMH", "item": "Previous headaches (Migraine history)", "completed": False, "points": 1},
+        {"category": "DH", "item": "Anticoagulants use", "completed": False, "points": 1},
+        {"category": "FH", "item": "Family history of Brain Aneurysm", "completed": False, "points": 1},
+        {"category": "Closing", "item": "Explanation of need for CT Head", "completed": False, "points": 1}
+    ]
+
+    neuro_headache_viva = [
+        {"q": "What is the critical 'cannot miss' diagnosis here?", "model": "Subarachnoid Hemorrhage (SAH)"},
+        {"q": "If CT Head is negative but suspicion remains, what next?", "model": "Lumbar Puncture (checking for xanthochromia) after 12 hours"},
+        {"q": "What is the characteristic description of an SAH?", "model": "Thunderclap headache, 'kicked in the back of the head'"}
+    ]
+
+    resp_asthma_rubric = [
+        {"category": "Opening", "item": "Introduces and confirms details", "completed": False, "points": 1},
+        {"category": "HPC", "item": "Triggers (Dust, Pets, Cold Air)", "completed": False, "points": 1},
+        {"category": "HPC", "item": "Diurnal variation (worse at night)", "completed": False, "points": 1},
+        {"category": "Severity", "item": "Ability to complete sentences", "completed": False, "points": 1},
+        {"category": "History", "item": "Previous ICU admissions / Intubation", "completed": False, "points": 2},
+        {"category": "DH", "item": "Inhaler technique and compliance", "completed": False, "points": 1},
+        {"category": "DH", "item": "Steroid use (Oral)", "completed": False, "points": 1},
+        {"category": "SH", "item": "Smoking status", "completed": False, "points": 1},
+        {"category": "Atopic", "item": "History of Eczema or Hayfever", "completed": False, "points": 1}
+    ]
+
+    resp_asthma_viva = [
+        {"q": "What defines 'Life Threatening' Asthma?", "model": "Silent chest, Cyanosis, Poor respiratory effort, Bradycardia, PEF < 33%"},
+        {"q": "Describe the immediate medical management steps (O SHIT).", "model": "Oxygen, Salbutamol (nebs), Hydrocortisone (IV) / Prednisolone, Ipratropium (nebs), Theophylline/Magnesium (IV)"},
+        {"q": "What is the typical blood gas finding in early asthma attack?", "model": "Respiratory Alkalosis (due to hyperventilation). Normal or high CO2 is a danger sign."}
+    ]
+
+    paeds_fever_rubric = [
+        {"category": "Opening", "item": "Introduces to Parent", "completed": False, "points": 1},
+        {"category": "HPC", "item": "Duration and height of fever", "completed": False, "points": 1},
+        {"category": "Hydration", "item": "Wet nappies / fluid intake", "completed": False, "points": 2},
+        {"category": "Behavior", "item": "Irritability / Drowsiness", "completed": False, "points": 1},
+        {"category": "Red Flags", "item": "Rash (Non-blanching)", "completed": False, "points": 2},
+        {"category": "Red Flags", "item": "Fits or Seizures", "completed": False, "points": 1},
+        {"category": "Birth Hx", "item": "Gestation / Delivery complications", "completed": False, "points": 1},
+        {"category": "Imms", "item": "Vaccination status up to date", "completed": False, "points": 1},
+        {"category": "Safety Net", "item": "Advice on when to return", "completed": False, "points": 1}
+    ]
+
+    paeds_fever_viva = [
+        {"q": "What are the traffic light system categories for fever?", "model": "Green (Low risk), Amber (Intermediate), Red (High risk)"},
+        {"q": "Name two 'Red' features in a febrile child.", "model": "Non-blanching rash, bulging fontanelle, neck stiffness, status epilepticus, focal neuro signs"},
+        {"q": "Empiric antibiotic for suspected meningitis in <3 months old?", "model": "IV Cefotaxime (plus Amoxicillin for Listeria coverage)"}
+    ]
+
     scenarios = [
-        ('chest_pain', 'Chest Pain', 'You are Mr. Jones, 65, crushing chest pain.', json.dumps(chest_pain_rubric), json.dumps(chest_pain_viva)),
-        ('abdominal_pain', 'Abdominal Pain', 'You are Mrs. Smith, 40, sharp RUQ pain.', json.dumps(abdominal_pain_rubric), json.dumps(abdominal_pain_viva)),
-        ('back_pain', 'Back Pain', 'You are Mr. Taylor, 30, lower back pain.', json.dumps(back_pain_rubric), json.dumps(back_pain_viva))
+        ('chest_pain', 'Chest Pain', 'You are Mr. Jones, 65. You have crushing central chest pain that started 1 hour ago while gardening. It radiates to your left arm. You feel sweaty and nauseous. You smoke 20 a day. You are worried about a heart attack.', json.dumps(chest_pain_rubric), json.dumps(chest_pain_viva)),
+        ('abdominal_pain', 'Abdominal Pain', 'You are Mrs. Smith, 40. You have sharp pain in the top right of your tummy (RUQ). It started after a takeaway last night. It goes to your right shoulder. You feel hot and sick. No jaundice.', json.dumps(abdominal_pain_rubric), json.dumps(abdominal_pain_viva)),
+        ('back_pain', 'Back Pain', 'You are Mr. Taylor, 30. You have lower back pain after lifting a box at work. Pain is 6/10. Crucially: You have had some numbness between your legs (saddle area) and you wet yourself earlier (incontinence).', json.dumps(back_pain_rubric), json.dumps(back_pain_viva)),
+        ('headache', 'Thunderclap Headache', 'You are Sarah, 45. You were at the gym and suddenly felt like someone hit you in the back of the head with a bat. It is the worst pain ever (10/10). You vomited once. Light hurts your eyes.', json.dumps(neuro_headache_rubric), json.dumps(neuro_headache_viva)),
+        ('asthma', 'Asthma Attack', 'You are Ben, 22. You are struggling to breathe. You have asthma but lost your brown inhaler. You have used your blue one 10 times today but it is not working. You speak in short sentences. Wheezy.', json.dumps(resp_asthma_rubric), json.dumps(resp_asthma_viva)),
+        ('paeds_fever', 'Febrile Child (Parent)', 'You are the mother of Leo, 18 months old. He has been hot for 2 days. He is very sleepy and hard to wake up. He has not had a wet nappy for 12 hours. You are terrified.', json.dumps(paeds_fever_rubric), json.dumps(paeds_fever_viva))
     ]
 
     cursor.executemany("INSERT INTO scenarios VALUES (?,?,?,?,?)", scenarios)
     conn.commit()
     conn.close()
-    print("✅ Database Synchronized.")
+    print("✅ Database Synchronized: 6 Stations Loaded.")
 
 if __name__ == "__main__":
     setup_database()
@@ -127,6 +192,7 @@ if __name__ == "__main__":
 import os
 import json
 import sqlite3
+import datetime
 from flask import Flask, request, jsonify, render_template, g
 from dotenv import load_dotenv
 from groq import Groq
@@ -136,12 +202,17 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 app = Flask(__name__)
 
 # --- CONFIG ---
-WINDOW_SIZE = 10 
+WINDOW_SIZE = 15 
 SUMMARIZER_MODEL = "llama-3.1-8b-instant" 
 MAIN_MODEL = "llama-3.3-70b-versatile"
 
 PATIENT_BEHAVIOR_DIRECTIVE = """
-BEHAVIOR: Short, natural sentences. No asterisks. Do not info-dump. Stay in character.
+SYSTEM INSTRUCTION: You are a simulated patient in a medical OSCE exam. 
+1. React naturally to the student's questions. 
+2. Do NOT volunteer information unless asked (unless the scenario says you are very anxious/talkative).
+3. If the student is empathetic, respond well. If they are rude, become closed off.
+4. Keep responses concise (under 3 sentences) to allow for back-and-forth dialogue.
+5. NO formatting (no bolding, no bullet points). Speak like a human.
 """
 
 def get_db():
@@ -158,7 +229,7 @@ def close_db(error):
 def summarize_history(old_messages):
     try:
         formatted = "\n".join([f"{m['role']}: {m['content']}" for m in old_messages])
-        prompt = f"Summarize clinical facts gathered: {formatted}"
+        prompt = f"Summarize the clinical facts gathered so far in this conversation. Keep it strictly factual:\n\n{formatted}"
         completion = client.chat.completions.create(
             model=SUMMARIZER_MODEL,
             messages=[{"role": "user", "content": prompt}]
@@ -171,8 +242,11 @@ def summarize_history(old_messages):
 @app.route("/")
 def index():
     db = get_db()
+    # Get scenarios
     scenarios = db.execute("SELECT id, name FROM scenarios").fetchall()
-    return render_template("index.html", scenarios=[dict(s) for s in scenarios])
+    # Get previous attempts for a mini dashboard (optional, but good for verification)
+    attempts = db.execute("SELECT student_name, score, timestamp FROM attempts ORDER BY id DESC LIMIT 5").fetchall()
+    return render_template("index.html", scenarios=[dict(s) for s in scenarios], attempts=[dict(a) for a in attempts])
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -181,7 +255,7 @@ def chat():
     history = data.get("history", [])
     
     db = get_db()
-    scenario = db.execute("SELECT patient_prompt FROM scenarios WHERE id =?", (scenario_id,)).fetchone()
+    scenario = db.execute("SELECT patient_prompt FROM scenarios WHERE id = ?", (scenario_id,)).fetchone()
     
     if not scenario:
         return jsonify({"error": "Scenario not found"}), 404
@@ -190,22 +264,22 @@ def chat():
     
     if len(history) > WINDOW_SIZE:
         summary = summarize_history(history[:-WINDOW_SIZE])
-        messages = [{"role": "system", "content": f"{sys_msg}\n\nSummary: {summary}"}] + history[-WINDOW_SIZE:]
+        messages = [{"role": "system", "content": f"{sys_msg}\n\nCONTEXT SUMMARY: {summary}"}] + history[-WINDOW_SIZE:]
     else:
         messages = [{"role": "system", "content": sys_msg}] + history
     
     try:
-        comp = client.chat.completions.create(model=MAIN_MODEL, messages=messages)
+        comp = client.chat.completions.create(model=MAIN_MODEL, messages=messages, temperature=0.7)
         return jsonify({"role": "assistant", "content": comp.choices[0].message.content})
     except Exception as e:
         print(f"❌ Chat API Error: {e}")
-        return jsonify({"role": "assistant", "content": "I'm feeling a bit unwell..."}), 500
+        return jsonify({"role": "assistant", "content": "I'm feeling a bit faint... (System Error)"}), 500
 
 @app.route("/get_viva", methods=["POST"])
 def get_viva():
     data = request.json
     db = get_db()
-    scenario = db.execute("SELECT viva_questions FROM scenarios WHERE id =?", (data.get('scenario_id'),)).fetchone()
+    scenario = db.execute("SELECT viva_questions FROM scenarios WHERE id = ?", (data.get('scenario_id'),)).fetchone()
     if not scenario:
         return jsonify({"questions": []}), 404
     return jsonify({"questions": json.loads(scenario['viva_questions'])})
@@ -214,13 +288,24 @@ def get_viva():
 def grade():
     data = request.json
     db = get_db()
-    scenario = db.execute("SELECT rubric FROM scenarios WHERE id =?", (data.get('scenario_id'),)).fetchone()
+    scenario = db.execute("SELECT rubric FROM scenarios WHERE id = ?", (data.get('scenario_id'),)).fetchone()
     
     transcript = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in data.get('history', [])])
     original_rubric = json.loads(scenario['rubric'])
     item_names = [i['item'] for i in original_rubric]
 
-    prompt = f"Grade this transcript against: {json.dumps(item_names)}. Return JSON: {{\"items\": [{{ \"item\": \"name\", \"completed\": true/false }}], \"feedback\": \"str\"}}"
+    prompt = f"""
+    You are a strict medical examiner. Grade this student-patient transcript.
+    
+    TRANSCRIPT:
+    {transcript}
+    
+    CHECKLIST ITEMS TO FIND:
+    {json.dumps(item_names)}
+    
+    Return ONLY a JSON object: 
+    {{ "items": [{{ "item": "exact_item_name_from_list", "completed": true/false }}], "feedback": "Brief constructive feedback for the student (max 50 words)." }}
+    """
     
     try:
         comp = client.chat.completions.create(
@@ -233,10 +318,18 @@ def grade():
         
         final_items = []
         for orig in original_rubric:
-            final_items.append({"item": orig['item'], "completed": ai_map.get(orig['item'], False), "points": 1})
+            is_done = ai_map.get(orig['item'], False)
+            final_items.append({
+                "category": orig['category'],
+                "item": orig['item'], 
+                "completed": is_done, 
+                "points": orig['points'] if is_done else 0,
+                "max_points": orig['points']
+            })
 
-        earned = sum(1 for i in final_items if i['completed'])
-        score = int((earned / len(final_items)) * 100)
+        earned_points = sum(i['points'] for i in final_items)
+        total_points = sum(i['max_points'] for i in final_items)
+        score = int((earned_points / total_points) * 100) if total_points > 0 else 0
         
         return jsonify({"score": score, "items": final_items, "feedback": result.get('feedback', "")})
     except Exception as e:
@@ -247,9 +340,20 @@ def grade():
 def grade_viva():
     data = request.json 
     db = get_db()
-    scenario = db.execute("SELECT viva_questions FROM scenarios WHERE id =?", (data.get('scenario_id'),)).fetchone()
+    scenario = db.execute("SELECT viva_questions FROM scenarios WHERE id = ?", (data.get('scenario_id'),)).fetchone()
     
-    prompt = f"Grade these viva answers: {json.dumps(data.get('responses'))} against models: {scenario['viva_questions']}. Return JSON: {{\"score\": int, \"feedback\": \"str\"}}"
+    prompt = f"""
+    Grade these medical viva answers. Be fair but accurate.
+    
+    QUESTIONS & MODEL ANSWERS:
+    {scenario['viva_questions']}
+    
+    STUDENT ANSWERS:
+    {json.dumps(data.get('responses'))}
+    
+    Return ONLY a JSON object:
+    {{ "score": integer_0_to_100, "feedback": "Brief feedback on knowledge gaps." }}
+    """
     
     try:
         comp = client.chat.completions.create(
@@ -265,10 +369,41 @@ def grade_viva():
 @app.route("/final_assessment", methods=["POST"])
 def final_assessment():
     data = request.json 
-    final_score = (data.get('h_score', 0) * 0.4) + (data.get('v_score', 0) * 0.6)
+    
+    # Calculate Final Grade
+    final_score = (data.get('h_score', 0) * 0.5) + (data.get('v_score', 0) * 0.5)
+    final_score = int(final_score)
+    
     grade = "PASS" if final_score >= 60 else "FAIL"
-    color = "#7c4dff" if grade == "PASS" else "#ff5252"
-    return jsonify({"score": int(final_score), "grade": grade, "color": color})
+    color = "#34C759" if grade == "PASS" else "#FF3B30" # Apple Green / Apple Red
+    
+    # Compile Transcript for DB
+    full_transcript = "--- HISTORY ---\n"
+    for msg in data.get('history', []):
+        full_transcript += f"{msg['role'].upper()}: {msg['content']}\n"
+    
+    full_transcript += "\n--- VIVA ---\n"
+    viva_responses = data.get('viva_responses', [])
+    for idx, resp in enumerate(viva_responses):
+        full_transcript += f"Q{idx+1}: {resp}\n"
+
+    # Compile Combined Feedback
+    combined_feedback = f"HISTORY: {data.get('h_feedback', '')} | VIVA: {data.get('v_feedback', '')}"
+
+    # --- THE DB FIX: INSERTING DATA ---
+    try:
+        db = get_db()
+        db.execute(
+            "INSERT INTO attempts (student_name, score, feedback, transcript) VALUES (?, ?, ?, ?)",
+            ("Student", final_score, combined_feedback, full_transcript)
+        )
+        db.commit()
+        print(f"✅ Attempt saved for scenario {data.get('scenario_id')} with score {final_score}")
+    except Exception as e:
+        print(f"❌ Database Save Error: {e}")
+        # We proceed anyway to show the user their grade even if DB fails
+
+    return jsonify({"score": final_score, "grade": grade, "color": color})
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
@@ -328,514 +463,926 @@ print("✅ Database initialized: osce_platform.db created.")
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OSCE AI | NEURAL COMMAND</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <title>OSCE AI | Clinical Platform</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --neon: #7c4dff; --neon-glow: rgba(124, 77, 255, 0.4);
-            --bg: #050507; --card: #0f0f13; --border: #1f1f27;
-            --text: #e0e0e6; --text-dim: #70707a; --success: #00ffa3;
-            --viva-gold: #ffc107; --error: #ff5252;
-            --glass: rgba(255, 255, 255, 0.03);
+            --bg: #F2F2F7;
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.5);
+            --primary: #007AFF;
+            --primary-dim: rgba(0, 122, 255, 0.1);
+            --text-main: #1C1C1E;
+            --text-sec: #8E8E93;
+            --success: #34C759;
+            --danger: #FF3B30;
+            --warning: #FFCC00;
+            --bubble-user: #007AFF;
+            --bubble-ai: #E9E9EB;
+            --shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+            --radius: 20px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
         body { 
-            font-family: 'Space Grotesk', sans-serif; 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
             background-color: var(--bg); 
-            color: var(--text); 
+            color: var(--text-main); 
             margin: 0; 
-            overflow: hidden; 
             height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
         }
 
-       .container { 
-            max-width: 1100px; 
-            margin: 0 auto; 
-            padding: 40px 20px; 
-            height: 100vh; 
-            display: flex; 
-            flex-direction: column; 
+        .app-container {
+            width: 100%;
+            max-width: 1400px;
+            height: 95vh;
+            margin-top: 2.5vh;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+            padding: 0 20px;
             box-sizing: border-box;
         }
+
+        .sidebar {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: var(--radius);
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--glass-border);
+        }
+
+        .brand {
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 30px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
         
-        /* High-Tech HUD Elements */
-       .hud-bar { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            background: var(--card); 
-            padding: 15px 25px; 
-            border-radius: 15px; 
-            border: 1px solid var(--border); 
+        .brand span { 
+            color: var(--primary); 
+        }
+
+        .station-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-right: 5px;
+        }
+
+        .station-card {
+            background: white;
+            padding: 18px;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        }
+        
+        .station-card:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
+        }
+        
+        .station-card.active {
+            border-color: var(--primary);
+            background: var(--primary-dim);
+        }
+        
+        .station-title { 
+            font-weight: 600; 
+            font-size: 0.95rem; 
+            margin-bottom: 4px; 
+        }
+        
+        .station-desc { 
+            font-size: 0.75rem; 
+            color: var(--text-sec); 
+        }
+
+        .main-stage {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hud {
+            padding: 15px 25px;
+            border-bottom: 1px solid #F0F0F0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.9);
+            backdrop-filter: blur(10px);
+            z-index: 10;
+        }
+
+        .timer-pill {
+            background: var(--text-main);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-dot { 
+            width: 8px; 
+            height: 8px; 
+            background: var(--success); 
+            border-radius: 50%;
+            transition: background 0.3s ease;
+        }
+        
+        .status-dot.paused {
+            background: var(--warning);
+        }
+        
+        .status-dot.critical {
+            background: var(--danger);
+            animation: pulse 1s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .timer-config-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .timer-config-card {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        .timer-config-card h3 {
+            margin-top: 0;
             margin-bottom: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            font-weight: 700;
         }
-
-        #timer { 
-            font-family: 'JetBrains Mono'; 
-            font-size: 2rem; 
-            color: var(--neon); 
-            transition: 0.3s; 
-            text-shadow: 0 0 10px var(--neon-glow);
+        
+        .timer-input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            align-items: center;
         }
-
-        #timer.dimmed { opacity: 0.3; filter: blur(1px); }
-
-        /* Station Grid & Selection */
-       .station-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
-            gap: 20px; 
-            margin: 30px 0; 
-        }
-
-       .station-card { 
-            background: var(--glass); 
-            border: 1px solid var(--border); 
-            padding: 25px; 
-            border-radius: 15px; 
-            cursor: pointer; 
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+        
+        .timer-input-group input[type="number"] {
+            width: 80px;
+            padding: 10px;
+            border: 1px solid #E5E5EA;
+            border-radius: 10px;
+            font-size: 1.1rem;
             text-align: center;
+            font-weight: 600;
+        }
+        
+        .timer-input-group label {
+            font-size: 0.9rem;
+            color: var(--text-sec);
+        }
+        
+        .btn-pause {
+            background: var(--warning);
+            color: white;
+            border: none;
+            padding: 6px 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .btn-pause:hover {
+            transform: scale(1.05);
+        }
+        
+        .btn-pause.playing {
+            background: var(--success);
         }
 
-       .station-card:hover { border-color: var(--neon); transform: translateY(-5px); }
-       .station-card.active { 
-            border-color: var(--neon); 
-            background: rgba(124, 77, 255, 0.1); 
-            box-shadow: 0 0 25px var(--neon-glow); 
+        #chat-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: white;
         }
 
-        /* Chat Interface */
-        #chat-interface { display: none; flex-direction: column; height: 85vh; }
-        #chat-box { 
-            flex-grow: 1; 
-            overflow-y: auto; 
-            background: rgba(0,0,0,0.3); 
-            border-radius: 20px; 
-            border: 1px solid var(--border); 
-            padding: 25px; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 15px; 
-            margin-bottom: 20px; 
-            scrollbar-width: thin;
-            scrollbar-color: var(--neon) var(--bg);
+        .msg {
+            max-width: 70%;
+            padding: 12px 18px;
+            border-radius: 18px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            position: relative;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn { 
+            from { 
+                opacity: 0; 
+                transform: translateY(10px); 
+            } 
+            to { 
+                opacity: 1; 
+                transform: translateY(0); 
+            } 
         }
 
-       .msg { padding: 15px 22px; border-radius: 15px; max-width: 75%; font-size: 1rem; line-height: 1.6; position: relative; }
-       .user { align-self: flex-end; background: var(--neon); color: white; border-bottom-right-radius: 2px; box-shadow: 0 4px 15px var(--neon-glow); }
-       .ai { align-self: flex-start; background: var(--card); border: 1px solid var(--border); border-bottom-left-radius: 2px; }
-
-       .input-wrap { 
-            display: flex; 
-            gap: 15px; 
-            background: var(--card); 
-            padding: 12px; 
-            border-radius: 15px; 
-            border: 1px solid var(--border); 
-            transition: 0.3s;
+        .msg.user {
+            align-self: flex-end;
+            background: var(--bubble-user);
+            color: white;
+            border-bottom-right-radius: 4px;
         }
-       .input-wrap:focus-within { border-color: var(--neon); box-shadow: 0 0 15px var(--neon-glow); }
-
-        input[type="text"] { 
-            flex-grow: 1; 
-            background: none; 
-            border: none; 
-            color: white; 
-            padding: 10px 15px; 
-            font-size: 1.1rem; 
-            outline: none; 
-            font-family: 'Space Grotesk';
+        
+        .msg.ai {
+            align-self: flex-start;
+            background: var(--bubble-ai);
+            color: var(--text-main);
+            border-bottom-left-radius: 4px;
         }
 
-        /* Viva Card: The Failure Point Fixed */
-        #viva-interface { 
-            display: none; 
-            text-align: center; 
-            justify-content: center; 
-            align-items: center; 
-            min-height: 80vh; 
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #F0F0F0;
+            display: flex;
+            gap: 15px;
+            align-items: center;
         }
 
-       .viva-card { 
-            background: var(--card); 
-            border: 1px solid var(--viva-gold); 
-            padding: 60px; 
-            border-radius: 30px; 
-            max-width: 750px; 
-            width: 100%; 
-            position: relative; 
-            box-shadow: 0 0 40px rgba(255, 193, 7, 0.1);
+        input[type="text"] {
+            flex-grow: 1;
+            border: 1px solid #E5E5EA;
+            padding: 14px 20px;
+            border-radius: 25px;
+            font-size: 1rem;
+            outline: none;
+            transition: 0.2s;
+            font-family: inherit;
+            background: #F9F9F9;
+        }
+        
+        input[type="text"]:focus { 
+            border-color: var(--primary); 
+            background: white; 
         }
 
-        #viva-timer-bar { 
-            position: absolute; 
+        .btn-send {
+            background: var(--primary);
+            color: white;
+            border: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+        }
+        
+        .btn-send:hover { 
+            transform: scale(1.05); 
+        }
+        
+        .btn-send:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .overlay {
+            position: absolute;
             top: 0; 
             left: 0; 
-            height: 6px; 
-            background: var(--viva-gold); 
-            width: 100%; 
-            transition: width 1s linear; 
-            border-radius: 30px 30px 0 0; 
-            box-shadow: 0 2px 10px rgba(255, 193, 7, 0.4);
+            right: 0; 
+            bottom: 0;
+            background: white;
+            z-index: 20;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px;
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        @keyframes slideUp { 
+            from { 
+                transform: translateY(100%); 
+            } 
+            to { 
+                transform: translateY(0); 
+            } 
         }
 
-        /* Results Display */
-        #result-box { display: none; text-align: center; overflow-y: auto; padding-bottom: 40px; }
-        #global-grade { font-size: 6rem; font-weight: 700; margin: 0; letter-spacing: -2px; }
-
-       .result-grid {
-            max-width: 900px;
-            margin: 40px auto;
-            display: grid;
-            grid-template-columns: 1fr 1.2fr;
-            gap: 30px;
+        .grade-ring {
+            width: 150px; 
+            height: 150px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center; 
+            justify-content: center;
+            font-size: 3rem; 
+            font-weight: 700;
+            margin: 20px auto;
+            position: relative;
+            background: conic-gradient(var(--success) 0%, #E9E9EB 0%);
+        }
+        
+        .grade-inner {
+            width: 120px; 
+            height: 120px;
+            background: white;
+            border-radius: 50%;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
         }
 
-       .stat-card {
-            background: var(--card);
-            padding: 35px;
-            border-radius: 20px;
-            border: 1px solid var(--border);
+        .btn-action {
+            padding: 12px 30px;
+            border-radius: 12px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        
+        .btn-action:hover {
+            transform: scale(1.02);
+        }
+        
+        .btn-next { 
+            background: var(--text-main); 
+            color: white; 
+        }
+        
+        .btn-red { 
+            background: var(--danger); 
+            color: white; 
+        }
+
+        .hidden { 
+            display: none !important; 
+        }
+        
+        .typing { 
+            font-size: 0.8rem; 
+            color: var(--text-sec); 
+            margin-left: 20px; 
+            margin-bottom: 10px; 
+            display: none; 
+        }
+        
+        .result-detail {
             text-align: left;
+            width: 100%;
+            max-width: 600px;
+            margin-top: 30px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .rubric-item {
+            display: flex; 
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 0.9rem;
+        }
+        
+        .missed { 
+            color: var(--danger); 
+        }
+        
+        .hit { 
+            color: var(--success); 
         }
 
-       .progress-bg { height: 8px; background: #1a1a24; border-radius: 10px; margin-top: 10px; overflow: hidden; }
-       .progress-fill { height: 100%; width: 0%; transition: 1.5s cubic-bezier(0.1, 0, 0.1, 1); }
-
-        /* General Utilities */
-       .btn-primary { background: var(--neon); color: white; border: none; padding: 15px 30px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: 0.3s; font-size: 1rem; }
-       .btn-primary:hover { transform: scale(1.02); box-shadow: 0 0 20px var(--neon-glow); }
-
-       .loader { width: 20px; height: 20px; border: 2px solid var(--text-dim); border-top-color: var(--neon); border-radius: 50%; animation: spin 0.8s linear infinite; display: none; }
-        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div id="selection-screen">
-        <h1 style="font-size:3.5rem; margin:0; letter-spacing:-1px;">NEURAL<span style="color:var(--neon)">OSCE</span></h1>
-        <p style="color:var(--text-dim); letter-spacing:2px; font-weight:500;">SYSTEM V2.0 | CLINICAL EVALUATION ENGINE</p>
+<div class="app-container">
+    <div class="sidebar">
+        <div class="brand">
+            <div style="width:24px; height:24px; background:var(--primary); border-radius:6px;"></div>
+            OSCE<span>AI</span>
+        </div>
         
-        <div style="background:var(--card); padding:40px; border-radius:25px; margin-top:40px; border:1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.4);">
-            <div style="display:flex; justify-content:center; gap:25px; margin-bottom:40px; align-items:center;">
-                <div style="text-align:center;">
-                    <label style="display:block; font-size:0.7rem; color:var(--text-dim); margin-bottom:5px;">MINUTES</label>
-                    <input type="number" id="cfg-min" value="08" min="0" max="20" style="width:70px; background:#000; border:1px solid var(--border); color:var(--neon); font-size:1.8rem; text-align:center; padding:12px; border-radius:12px; font-family:'JetBrains Mono';">
-                </div>
-                <span style="font-size:2rem; margin-top:20px;">:</span>
-                <div style="text-align:center;">
-                    <label style="display:block; font-size:0.7rem; color:var(--text-dim); margin-bottom:5px;">SECONDS</label>
-                    <input type="number" id="cfg-sec" value="00" min="0" max="59" style="width:70px; background:#000; border:1px solid var(--border); color:var(--neon); font-size:1.8rem; text-align:center; padding:12px; border-radius:12px; font-family:'JetBrains Mono';">
-                </div>
+        <div class="station-list">
+            <div class="station-card" onclick="selectStation('chest-pain-001', 'Acute Chest Pain', this)">
+                <div class="station-title">Acute Chest Pain</div>
+                <div class="station-desc">Clinical Station</div>
             </div>
-            
-            <div class="station-grid">
-                {% for s in scenarios %}
-                <div class="station-card" id="card-{{ s.id }}" onclick="selectStation('{{ s.id }}', this)">
-                    <div style="font-size:0.7rem; color:var(--neon); margin-bottom:8px; text-transform:uppercase; letter-spacing:1px;">Active Module</div>
-                    <div style="font-size:1.1rem; font-weight:700;">{{ s.name }}</div>
-                </div>
-                {% endfor %}
+            <div class="station-card" onclick="selectStation('headache-002', 'Severe Headache', this)">
+                <div class="station-title">Severe Headache</div>
+                <div class="station-desc">Clinical Station</div>
             </div>
-            
-            <button onclick="startStation()" class="btn-primary" style="width:100%; margin-top:20px; font-size:1.2rem; letter-spacing:1px;">INITIALIZE SIMULATION</button>
+            <div class="station-card" onclick="selectStation('abdominal-003', 'Abdominal Pain', this)">
+                <div class="station-title">Abdominal Pain</div>
+                <div class="station-desc">Clinical Station</div>
+            </div>
+            <div class="station-card" onclick="selectStation('breathless-004', 'Shortness of Breath', this)">
+                <div class="station-title">Shortness of Breath</div>
+                <div class="station-desc">Clinical Station</div>
+            </div>
+            <div class="station-card" onclick="selectStation('paeds-fever-005', 'Paediatric Fever', this)">
+                <div class="station-title">Paediatric Fever</div>
+                <div class="station-desc">Clinical Station</div>
+            </div>
+        </div>
+
+        <div style="margin-top:20px; padding-top:20px; border-top:1px solid #eee;">
+            <div class="station-title" style="margin-bottom:10px;">Recent Attempts</div>
+            <div style="font-size:0.8rem; color:var(--text-sec); display:flex; justify-content:space-between; margin-bottom:5px;">
+                <span>2025-02-10</span>
+                <span style="font-weight:600; color:var(--success);">78%</span>
+            </div>
+            <div style="font-size:0.8rem; color:var(--text-sec); display:flex; justify-content:space-between; margin-bottom:5px;">
+                <span>2025-02-08</span>
+                <span style="font-weight:600; color:var(--danger);">52%</span>
+            </div>
+            <div style="font-size:0.8rem; color:var(--text-sec); display:flex; justify-content:space-between; margin-bottom:5px;">
+                <span>2025-02-05</span>
+                <span style="font-weight:600; color:var(--success);">85%</span>
+            </div>
         </div>
     </div>
 
-    <div id="chat-interface">
-        <div class="hud-bar">
-            <div style="display:flex; align-items:center; gap:25px;">
-                <div id="timer">08:00</div>
-                <button onclick="toggleTimer()" style="background:none; border:1px solid var(--border); color:var(--text-dim); padding:8px 15px; border-radius:8px; cursor:pointer; font-size:0.8rem; text-transform:uppercase;">Pause / Resume</button>
-            </div>
-            <div style="display:flex; align-items:center; gap:15px;">
-                <div id="chat-status" style="font-size:0.8rem; color:var(--text-dim);">System Active</div>
-                <button onclick="startViva()" style="background:var(--error); border:none; color:white; padding:12px 25px; border-radius:10px; cursor:pointer; font-weight:700; box-shadow:0 4px 15px rgba(255, 82, 82, 0.3);">END STATION</button>
+    <div class="main-stage">
+        
+        <div class="hud">
+            <div style="font-weight:600;" id="active-station-name">Select a Station</div>
+            <div style="display:flex; gap:15px; align-items:center;">
+                <button class="btn-pause playing" onclick="togglePause()" id="pause-btn" style="display:none;">
+                    <span id="pause-icon">⏸</span>
+                    <span id="pause-text">Pause</span>
+                </button>
+                <div class="timer-pill">
+                    <div class="status-dot" id="timer-dot"></div>
+                    <span id="timer-display">08:00</span>
+                </div>
+                <button class="btn-action btn-red" onclick="endStation()" style="margin:0; padding: 6px 15px; font-size:0.8rem;">End</button>
             </div>
         </div>
-        
-        <div id="chat-box"></div>
-        
-        <div class="input-wrap">
-            <input type="text" id="user-input" placeholder="Query the patient..." onkeydown="if(event.key==='Enter') sendMessage()">
-            <div id="typing-indicator" class="loader" style="margin-right:15px; margin-top:10px;"></div>
-            <button onclick="sendMessage()" class="btn-primary" style="padding:10px 30px;">SEND</button>
-        </div>
-    </div>
 
-    <div id="viva-interface">
-        <div class="viva-card">
-            <div id="viva-timer-bar"></div>
-            <div style="color:var(--viva-gold); font-weight:700; letter-spacing:3px; margin-bottom:25px; font-size:0.9rem;">PHASE 2: VIVA VOCE</div>
-            <h2 id="viva-q-text" style="font-size:1.8rem; line-height:1.4; min-height:80px;">Awaiting Examiner...</h2>
-            
-            <div class="input-wrap" style="margin-top:50px; border-color:var(--viva-gold); background:rgba(255,193,7,0.02);">
-                <input type="text" id="viva-input" placeholder="Provide clinical rationale..." onkeydown="if(event.key==='Enter') submitViva()">
-                <button onclick="submitViva()" style="background:var(--viva-gold); color:black; border:none; padding:10px 30px; border-radius:10px; cursor:pointer; font-weight:700;">SUBMIT</button>
+        <div id="chat-container">
+            <div style="text-align:center; color:var(--text-sec); margin-top:50px;">
+                Please select a station from the sidebar to begin the examination.
             </div>
-            <div style="margin-top:20px; color:var(--text-dim); font-size:0.8rem;">Note: Clinical reasoning should be concise and evidence-based.</div>
         </div>
-    </div>
+        <div class="typing" id="typing-indicator">Patient is typing...</div>
 
-    <div id="result-box">
-        <div style="margin-top:40px;">
-            <div style="color:var(--text-dim); letter-spacing:4px; margin-bottom:10px;">GLOBAL ASSESSMENT</div>
-            <h1 id="global-grade">PASS</h1>
+        <div class="input-area">
+            <input type="text" id="user-input" placeholder="Ask the patient..." disabled oninput="handleTyping()" onkeydown="if(event.key==='Enter') sendMessage()">
+            <button class="btn-send" onclick="sendMessage()" id="send-btn" disabled>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
         </div>
-        
-        <div class="result-grid">
-            <div class="stat-card">
-                <h3 style="margin-top:0; color:var(--text-dim); font-size:0.8rem; letter-spacing:1px;">COMPETENCY BREAKDOWN</h3>
-                
-                <div style="margin:25px 0 10px; display:flex; justify-content:space-between;">
-                    <span style="font-weight:700;">HISTORY TAKING</span>
-                    <span id="h-pct" style="color:var(--neon);">0%</span>
-                </div>
-                <div class="progress-bg"><div id="h-fill" class="progress-fill" style="background:var(--neon);"></div></div>
-                
-                <div style="margin:35px 0 10px; display:flex; justify-content:space-between;">
-                    <span style="font-weight:700;">CLINICAL VIVA</span>
-                    <span id="v-pct" style="color:var(--viva-gold);">0%</span>
-                </div>
-                <div class="progress-bg"><div id="v-fill" class="progress-fill" style="background:var(--viva-gold);"></div></div>
-            </div>
+
+        <div id="viva-overlay" class="overlay">
+            <h2 style="font-weight:700; margin-bottom:10px;">Viva Voce</h2>
+            <p style="color:var(--text-sec); margin-bottom:30px;">Answer the examiner's question below.</p>
             
-            <div class="stat-card">
-                <h3 style="margin-top:0; color:var(--text-dim); font-size:0.8rem; letter-spacing:1px;">EXAMINER FEEDBACK</h3>
-                <div id="feedback-content" style="margin-top:20px; color:var(--text-dim); font-size:0.95rem; line-height:1.7;">
-                    Analyzing candidate performance...
-                </div>
+            <div style="background:#F9F9F9; padding:20px; border-radius:15px; width:80%; margin-bottom:20px;">
+                <h3 id="viva-question-text" style="margin:0;">Loading Question...</h3>
+            </div>
+
+            <input type="text" id="viva-input" placeholder="Type your answer..." style="width:60%; margin-bottom:20px;">
+            <button class="btn-action btn-next" onclick="submitViva()">Submit Answer</button>
+        </div>
+
+        <div id="result-overlay" class="overlay">
+            <div class="grade-ring" id="grade-ring-el">
+                <div class="grade-inner" id="final-score">--</div>
+            </div>
+            <h2 id="final-grade-text">PASS</h2>
+            
+            <div class="result-detail" id="result-breakdown"></div>
+
+            <button class="btn-action btn-next" onclick="location.reload()">Next Candidate</button>
+        </div>
+
+    </div>
+</div>
+
+<!-- Timer Configuration Modal -->
+<div class="timer-config-modal" id="timer-config-modal">
+    <div class="timer-config-card">
+        <h3>⏱️ Set Station Timer</h3>
+        <p style="color: var(--text-sec); font-size: 0.9rem; margin-bottom: 20px;">Configure the duration for this OSCE station</p>
+        
+        <div class="timer-input-group">
+            <div>
+                <input type="number" id="minutes-input" value="8" min="1" max="60">
+                <label style="display: block; text-align: center; margin-top: 5px;">Minutes</label>
+            </div>
+            <div style="font-size: 1.5rem; color: var(--text-sec);">:</div>
+            <div>
+                <input type="number" id="seconds-input" value="0" min="0" max="59">
+                <label style="display: block; text-align: center; margin-top: 5px;">Seconds</label>
             </div>
         </div>
         
-        <button onclick="location.reload()" style="background:none; border:1px solid var(--border); color:white; padding:18px 50px; border-radius:15px; cursor:pointer; font-weight:700; letter-spacing:1px; transition:0.3s;">INITIATE NEW SESSION</button>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-action" style="flex: 1; background: #E5E5EA; color: var(--text-main); margin: 0;" onclick="closeTimerConfig()">Cancel</button>
+            <button class="btn-action btn-next" style="flex: 1; margin: 0;" onclick="startWithTimer()">Start Station</button>
+        </div>
     </div>
 </div>
 
 <script>
-    let chatHistory = [], currentScenarioId = "", vivaQs = [], vivaIdx = 0, vivaAns = [];
-    let timerSeconds, timerId, isPaused = false, typingTimeout;
-    let vivaTimerSeconds = 25, vivaTimerId, isVivaPaused = false;
+    let currentScenarioId = null;
+    let chatHistory = [];
+    let vivaQuestions = [];
+    let vivaResponses = [];
+    let vivaIndex = 0;
+    
+    let historyScore = 0;
+    let historyFeedback = "";
+    
+    let timeLeft = 480;
+    let timerId = null;
+    let timerPaused = false;
+    let typingTimeout = null;
+    let isTyping = false;
+    let configuredStationName = '';
+    let configuredStationId = '';
 
-    function selectStation(id, el) {
-        currentScenarioId = id;
+    function selectStation(id, name, el) {
         document.querySelectorAll('.station-card').forEach(c => c.classList.remove('active'));
         el.classList.add('active');
-    }
-
-    function startStation() {
-        if(!currentScenarioId) return alert("COMMAND ERROR: Select Evaluation Module.");
         
-        const m = parseInt(document.getElementById('cfg-min').value) || 0;
-        const s = parseInt(document.getElementById('cfg-sec').value) || 0;
-        timerSeconds = (m * 60) + s;
+        // Store selection and show timer config
+        configuredStationId = id;
+        configuredStationName = name;
         
-        if(timerSeconds <= 0) return alert("COMMAND ERROR: Invalid Duration.");
-
-        document.getElementById('selection-screen').style.display = 'none';
-        document.getElementById('chat-interface').style.display = 'flex';
-        updateTimerDisplay();
-        startTimer();
+        // Show timer configuration modal
+        document.getElementById('timer-config-modal').style.display = 'flex';
     }
+    
+    function closeTimerConfig() {
+        document.getElementById('timer-config-modal').style.display = 'none';
+        document.querySelectorAll('.station-card').forEach(c => c.classList.remove('active'));
+    }
+    
+    function startWithTimer() {
+        const minutes = parseInt(document.getElementById('minutes-input').value) || 8;
+        const seconds = parseInt(document.getElementById('seconds-input').value) || 0;
+        
+        timeLeft = (minutes * 60) + seconds;
+        
+        if (timeLeft <= 0) {
+            alert('Please set a valid timer duration');
+            return;
+        }
+        
+        // Close modal and start station
+        document.getElementById('timer-config-modal').style.display = 'none';
+        
+        currentScenarioId = configuredStationId;
+        document.getElementById('active-station-name').innerText = configuredStationName;
+        
+        document.getElementById('chat-container').innerHTML = `<div style="text-align:center; color:#ccc; margin-top:20px; font-size:0.9rem;">Station Started. Timer Running.</div>`;
+        chatHistory = [];
+        
+        document.getElementById('user-input').disabled = false;
+        document.getElementById('send-btn').disabled = false;
+        document.getElementById('pause-btn').style.display = 'flex';
+        document.getElementById('user-input').focus();
 
-    function startTimer() {
         clearInterval(timerId);
-        timerId = setInterval(() => {
-            if(!isPaused) {
-                if(timerSeconds <= 0) { 
-                    clearInterval(timerId);
-                    startViva(); 
-                    return; 
-                }
-                timerSeconds--;
-                updateTimerDisplay();
+        timerPaused = false;
+        updateTimerDisplay();
+        timerId = setInterval(updateTimer, 1000);
+    }
+    
+    function togglePause() {
+        timerPaused = !timerPaused;
+        const btn = document.getElementById('pause-btn');
+        const icon = document.getElementById('pause-icon');
+        const text = document.getElementById('pause-text');
+        const dot = document.getElementById('timer-dot');
+        
+        if (timerPaused) {
+            btn.classList.remove('playing');
+            icon.innerText = '▶';
+            text.innerText = 'Resume';
+            dot.classList.add('paused');
+        } else {
+            btn.classList.add('playing');
+            icon.innerText = '⏸';
+            text.innerText = 'Pause';
+            // Only remove paused if not in last 30 seconds
+            if (timeLeft > 30) {
+                dot.classList.remove('paused');
             }
+        }
+    }
+
+    function updateTimer() {
+        // Don't decrement if paused or typing
+        if (!timerPaused && !isTyping) {
+            if (timeLeft <= 0) {
+                clearInterval(timerId);
+                endStation();
+                return;
+            }
+            timeLeft--;
+        }
+        
+        updateTimerDisplay();
+    }
+    
+    function updateTimerDisplay() {
+        const m = Math.floor(timeLeft / 60);
+        const s = timeLeft % 60;
+        document.getElementById('timer-display').innerText = `${m}:${s.toString().padStart(2, '0')}`;
+        
+        const dot = document.getElementById('timer-dot');
+        
+        // Update color based on state
+        if (timerPaused) {
+            dot.classList.add('paused');
+            dot.classList.remove('critical');
+        } else if (isTyping) {
+            dot.classList.add('paused');
+            dot.classList.remove('critical');
+        } else if (timeLeft <= 30) {
+            dot.classList.add('critical');
+            dot.classList.remove('paused');
+        } else {
+            dot.classList.remove('paused');
+            dot.classList.remove('critical');
+        }
+    }
+
+    function handleTyping() {
+        // Set typing state to true
+        isTyping = true;
+        updateTimerDisplay();
+        
+        // Clear existing timeout
+        if (typingTimeout) {
+            clearTimeout(typingTimeout);
+        }
+        
+        // Set new timeout to resume after 1 second of no typing
+        typingTimeout = setTimeout(() => {
+            isTyping = false;
+            updateTimerDisplay();
         }, 1000);
     }
-
-    function updateTimerDisplay() {
-        const t = document.getElementById('timer');
-        let m = Math.floor(timerSeconds/60), s = timerSeconds % 60;
-        t.innerText = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-        if(timerSeconds < 60) t.style.color = 'var(--error)';
-    }
-
-    function toggleTimer() { 
-        isPaused = !isPaused; 
-        document.getElementById('timer').classList.toggle('dimmed', isPaused); 
-    }
-
-    window.onload = () => {
-        const uInput = document.getElementById('user-input');
-        const vInput = document.getElementById('viva-input');
-
-        uInput.addEventListener('input', () => {
-            isPaused = true;
-            document.getElementById('timer').classList.add('dimmed');
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => { 
-                isPaused = false; 
-                document.getElementById('timer').classList.remove('dimmed'); 
-            }, 1500);
-        });
-
-        vInput.addEventListener('input', () => {
-            isVivaPaused = true;
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => { isVivaPaused = false; }, 1500);
-        });
-    };
 
     async function sendMessage() {
         const input = document.getElementById('user-input');
-        const loader = document.getElementById('typing-indicator');
-        if(!input.value || loader.style.display === 'block') return;
-        
-        const text = input.value; 
-        input.value = "";
-        appendMsg(text, 'user');
-        chatHistory.push({role:'user', content:text});
-        
-        loader.style.display = 'block';
-        document.getElementById('chat-status').innerText = "Patient Thinking...";
+        const txt = input.value.trim();
+        if (!txt) return;
+
+        // Clear typing state immediately when sending
+        isTyping = false;
+        if (typingTimeout) {
+            clearTimeout(typingTimeout);
+        }
+        updateTimerDisplay();
+
+        addMessage(txt, 'user');
+        input.value = '';
+        document.getElementById('typing-indicator').style.display = 'block';
+
+        chatHistory.push({"role": "user", "content": txt});
 
         try {
-            const res = await fetch('/chat', { 
-                method:'POST', 
-                headers:{'Content-Type':'application/json'}, 
-                body:JSON.stringify({history:chatHistory, scenario_id:currentScenarioId})
+            const res = await fetch('/chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ scenario_id: currentScenarioId, history: chatHistory })
             });
+            
+            if (!res.ok) {
+                throw new Error(`Server error: ${res.status}`);
+            }
+            
             const data = await res.json();
-            chatHistory.push(data);
-            appendMsg(data.content, 'ai');
+            
+            document.getElementById('typing-indicator').style.display = 'none';
+            
+            // Handle different response formats
+            let aiMessage = '';
+            if (data.content) {
+                aiMessage = data.content;
+            } else if (data.message) {
+                aiMessage = data.message;
+            } else if (data.response) {
+                aiMessage = data.response;
+            } else if (typeof data === 'string') {
+                aiMessage = data;
+            } else {
+                console.error('Unexpected response format:', data);
+                aiMessage = 'I apologize, I received an unexpected response format. Please try again.';
+            }
+            
+            addMessage(aiMessage, 'ai');
+            chatHistory.push({"role": "assistant", "content": aiMessage});
+            
         } catch (e) {
-            appendMsg("... [Connection Interrupted]", 'ai');
-        } finally {
-            loader.style.display = 'none';
-            document.getElementById('chat-status').innerText = "System Active";
+            console.error('Chat error:', e);
+            document.getElementById('typing-indicator').style.display = 'none';
+            addMessage('⚠️ Error: Could not reach server. Please check your connection and try again.', 'ai');
         }
     }
 
-    function appendMsg(t, r) {
-        const box = document.getElementById('chat-box');
+    function addMessage(text, role) {
         const div = document.createElement('div');
-        div.className = `msg ${r}`;
-        div.innerText = t;
-        box.appendChild(div);
-        box.scrollTop = box.scrollHeight;
+        div.className = `msg ${role}`;
+        div.innerText = text;
+        document.getElementById('chat-container').appendChild(div);
+        document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
+    }
+
+    async function endStation() {
+        clearInterval(timerId);
+        document.getElementById('user-input').disabled = true;
+        document.getElementById('send-btn').disabled = true;
+        
+        try {
+            const res = await fetch('/grade', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ scenario_id: currentScenarioId, history: chatHistory })
+            });
+            const data = await res.json();
+            historyScore = data.score;
+            historyFeedback = data.feedback;
+            
+            const list = document.getElementById('result-breakdown');
+            list.innerHTML = `<h4 style="margin:0 0 10px 0;">Performance Breakdown</h4>`;
+            data.items.forEach(i => {
+                list.innerHTML += `
+                    <div class="rubric-item">
+                        <span>${i.item}</span>
+                        <span class="${i.completed ? 'hit' : 'missed'}">${i.completed ? 'Done' : 'Missed'}</span>
+                    </div>
+                `;
+            });
+            list.innerHTML += `<div style="padding:15px; background:#f9f9f9; border-radius:10px; margin-top:15px; font-size:0.9rem;"><strong>Examiner Feedback:</strong> ${data.feedback}</div>`;
+
+            startViva();
+        } catch (e) {
+            console.error(e);
+            alert('Error grading session');
+        }
     }
 
     async function startViva() {
-        clearInterval(timerId);
-        document.getElementById('chat-interface').style.display = 'none';
-        document.getElementById('viva-interface').style.display = 'flex';
-        
         try {
-            const res = await fetch('/get_viva', { 
-                method:'POST', 
-                headers:{'Content-Type':'application/json'}, 
-                body:JSON.stringify({scenario_id:currentScenarioId})
+            const res = await fetch('/get_viva', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ scenario_id: currentScenarioId })
             });
-            if(!res.ok) throw new Error("Viva Retrieval Failed");
             const data = await res.json();
-            vivaQs = data.questions;
-            if(vivaQs && vivaQs.length > 0) {
-                vivaIdx = 0;
-                vivaAns = [];
-                nextVivaQuestion();
+            vivaQuestions = data.questions;
+            
+            if (vivaQuestions.length > 0) {
+                document.getElementById('viva-overlay').style.display = 'flex';
+                showNextVivaQuestion();
             } else {
-                throw new Error("No Questions Loaded");
+                finalizeSession(0, "No Viva");
             }
         } catch (e) {
             console.error(e);
-            document.getElementById('viva-q-text').innerText = "EXAMINER UNAVAILABLE. PROCEEDING...";
-            setTimeout(showFinalResults, 2000);
+            finalizeSession(0, "Viva error");
         }
     }
 
-    function nextVivaQuestion() {
-        if(vivaIdx < vivaQs.length) {
-            document.getElementById('viva-q-text').innerText = vivaQs[vivaIdx].q;
+    function showNextVivaQuestion() {
+        if (vivaIndex < vivaQuestions.length) {
+            document.getElementById('viva-question-text').innerText = vivaQuestions[vivaIndex].q;
             document.getElementById('viva-input').value = "";
             document.getElementById('viva-input').focus();
-            vivaTimerSeconds = 25; 
-            isVivaPaused = false;
-            startVivaTimer();
         } else {
-            showFinalResults();
+            finishViva();
         }
     }
 
-    function startVivaTimer() {
-        clearInterval(vivaTimerId);
-        vivaTimerId = setInterval(() => {
-            if(!isVivaPaused) {
-                vivaTimerSeconds--;
-                document.getElementById('viva-timer-bar').style.width = (vivaTimerSeconds * 4) + "%";
-                if(vivaTimerSeconds <= 0) submitViva();
-            }
-        }, 1000);
+    function submitViva() {
+        const ans = document.getElementById('viva-input').value;
+        vivaResponses.push(ans);
+        vivaIndex++;
+        showNextVivaQuestion();
     }
 
-    async function submitViva() {
-        clearInterval(vivaTimerId);
-        const input = document.getElementById('viva-input');
-        vivaAns.push({q: vivaQs[vivaIdx].q, a: input.value || "[No Answer]"});
-        vivaIdx++;
-        document.getElementById('viva-q-text').innerText = "Processing Rationale...";
-        setTimeout(nextVivaQuestion, 800);
+    async function finishViva() {
+        document.getElementById('viva-overlay').innerHTML = `<h3>Grading Answers...</h3>`;
+        
+        try {
+            const res = await fetch('/grade_viva', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    scenario_id: currentScenarioId, 
+                    responses: vivaResponses 
+                })
+            });
+            const data = await res.json();
+            
+            finalizeSession(data.score, data.feedback);
+        } catch (e) {
+            console.error(e);
+            finalizeSession(0, "Viva grading error");
+        }
     }
 
-    async function showFinalResults() {
-        document.getElementById('viva-interface').style.display = 'none';
-        document.getElementById('result-box').style.display = 'block';
-        document.getElementById('global-grade').innerText = "EVALUATING...";
+    async function finalizeSession(vivaScore, vivaFeedback) {
+        document.getElementById('viva-overlay').style.display = 'none';
+        document.getElementById('result-overlay').style.display = 'flex';
 
         try {
-            const [hRes, vRes] = await Promise.all([
-                fetch('/grade', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({scenario_id: currentScenarioId, history: chatHistory})
-                }),
-                fetch('/grade_viva', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({scenario_id: currentScenarioId, responses: vivaAns})
+            const res = await fetch('/final_assessment', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    scenario_id: currentScenarioId,
+                    h_score: historyScore,
+                    h_feedback: historyFeedback,
+                    v_score: vivaScore,
+                    v_feedback: vivaFeedback,
+                    history: chatHistory,
+                    viva_responses: vivaResponses
                 })
-            ]);
-
-            const hData = await hRes.json();
-            const vData = await vRes.json();
-
-            const fRes = await fetch('/final_assessment', { 
-                method:'POST', 
-                headers:{'Content-Type':'application/json'}, 
-                body:JSON.stringify({h_score:hData.score, v_score:vData.score})
             });
-            const fData = await fRes.json();
+            const finalData = await res.json();
 
-            document.getElementById('global-grade').innerText = fData.grade;
-            document.getElementById('global-grade').style.color = fData.color;
-            document.getElementById('h-pct').innerText = hData.score + "%";
-            document.getElementById('v-pct').innerText = vData.score + "%";
-            
-            setTimeout(() => {
-                document.getElementById('h-fill').style.width = hData.score + "%";
-                document.getElementById('v-fill').style.width = vData.score + "%";
-            }, 100);
-
-            document.getElementById('feedback-content').innerHTML = `
-                <strong>STATION OUTCOME:</strong><br>${vData.feedback}<br><br>
-                <strong>EXAMINER FEEDBACK:</strong> ${hData.feedback}
-            `;
+            document.getElementById('final-score').innerText = finalData.score + "%";
+            document.getElementById('grade-ring-el').style.background = `conic-gradient(${finalData.color} ${finalData.score}%, #E9E9EB 0%)`;
+            document.getElementById('final-grade-text').innerText = finalData.grade;
+            document.getElementById('final-grade-text').style.color = finalData.color;
         } catch (e) {
-            document.getElementById('global-grade').innerText = "ERROR";
+            console.error(e);
+            document.getElementById('final-score').innerText = "ERR";
         }
     }
 </script>
+
 </body>
 </html>
