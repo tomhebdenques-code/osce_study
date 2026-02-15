@@ -1,0 +1,7 @@
+Features to add:
+    -Create your own station
+    -Expand current scenarios to 50. Use Quesmed's OSCE 'Hisotry Taking' scenarios as a guide. Ensure each scenario has a scenario-specific markscheme rubric and viva
+    -Get the 'recent attempts' feature to be work
+    -Ensure the markscheme only gives marks for things the user has actively elicited in the conversation
+    -Link up with langchain
+    -Change UI / design / look to be in keeping with Quesmed 

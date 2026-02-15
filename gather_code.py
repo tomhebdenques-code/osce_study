@@ -1,5 +1,5 @@
 import os
-
+# This script gathers all the relevant code files into a single text file for easier context sharing with the LLM.
 output_file = "project_context.txt"
 exclude_dirs = {'venv', '.git', '__pycache__'}
 
