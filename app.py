@@ -16,12 +16,13 @@ SUMMARIZER_MODEL = "llama-3.1-8b-instant"
 MAIN_MODEL = "llama-3.3-70b-versatile"
 
 PATIENT_BEHAVIOR_DIRECTIVE = """
-SYSTEM INSTRUCTION: You are a simulated patient in a medical OSCE exam. 
+SYSTEM INSTRUCTION: You are a simulated patient in a medical OSCE exam.
 1. React naturally to the student's questions. 
 2. Do NOT volunteer information unless asked (unless the scenario says you are very anxious/talkative).
 3. If the student is empathetic, respond well. If they are rude, become closed off.
 4. Keep responses concise (under 3 sentences) to allow for back-and-forth dialogue.
-5. NO formatting (no bolding, no bullet points). Speak like a human.
+5. NO formatting (no bolding, no bullet points).
+Speak like a human.
 """
 
 def get_db():
@@ -51,11 +52,18 @@ def summarize_history(old_messages):
 @app.route("/")
 def index():
     db = get_db()
-    # Get scenarios
-    scenarios = db.execute("SELECT id, name FROM scenarios").fetchall()
-    # Get previous attempts for a mini dashboard (optional, but good for verification)
+    # [cite_start]Updated to group scenarios by speciality [cite: 35]
+    rows = db.execute("SELECT id, name, speciality FROM scenarios").fetchall()
+    
+    grouped_scenarios = {}
+    for row in rows:
+        spec = row['speciality']
+        if spec not in grouped_scenarios:
+            grouped_scenarios[spec] = []
+        grouped_scenarios[spec].append(dict(row))
+        
     attempts = db.execute("SELECT student_name, score, timestamp FROM attempts ORDER BY id DESC LIMIT 5").fetchall()
-    return render_template("index.html", scenarios=[dict(s) for s in scenarios], attempts=[dict(a) for a in attempts])
+    return render_template("index.html", grouped_scenarios=grouped_scenarios, attempts=[dict(a) for a in attempts])
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -153,7 +161,6 @@ def grade_viva():
     
     prompt = f"""
     Grade these medical viva answers. Be fair but accurate.
-    
     QUESTIONS & MODEL ANSWERS:
     {scenario['viva_questions']}
     
@@ -179,14 +186,12 @@ def grade_viva():
 def final_assessment():
     data = request.json 
     
-    # Calculate Final Grade
     final_score = (data.get('h_score', 0) * 0.5) + (data.get('v_score', 0) * 0.5)
     final_score = int(final_score)
     
     grade = "PASS" if final_score >= 60 else "FAIL"
-    color = "#34C759" if grade == "PASS" else "#FF3B30" # Apple Green / Apple Red
+    color = "#34C759" if grade == "PASS" else "#FF3B30"
     
-    # Compile Transcript for DB
     full_transcript = "--- HISTORY ---\n"
     for msg in data.get('history', []):
         full_transcript += f"{msg['role'].upper()}: {msg['content']}\n"
@@ -196,10 +201,8 @@ def final_assessment():
     for idx, resp in enumerate(viva_responses):
         full_transcript += f"Q{idx+1}: {resp}\n"
 
-    # Compile Combined Feedback
     combined_feedback = f"HISTORY: {data.get('h_feedback', '')} | VIVA: {data.get('v_feedback', '')}"
 
-    # --- THE DB FIX: INSERTING DATA ---
     try:
         db = get_db()
         db.execute(
@@ -207,10 +210,8 @@ def final_assessment():
             ("Student", final_score, combined_feedback, full_transcript)
         )
         db.commit()
-        print(f"✅ Attempt saved for scenario {data.get('scenario_id')} with score {final_score}")
     except Exception as e:
         print(f"❌ Database Save Error: {e}")
-        # We proceed anyway to show the user their grade even if DB fails
 
     return jsonify({"score": final_score, "grade": grade, "color": color})
 
